@@ -208,6 +208,7 @@
       .piece {
         --piece-width: 168px;
         --piece-height: 128px;
+        --piece-scale: 1;
         --piece-color: #f7ad6f;
         --piece-shadow: rgba(80, 64, 44, 0.22);
         position: absolute;
@@ -285,7 +286,7 @@
         bottom: 26%;
         transform: translateX(-50%);
         display: none;
-        font-size: 2.3rem;
+        font-size: calc(2.3rem * var(--piece-scale));
         line-height: 1;
         pointer-events: none;
       }
@@ -296,11 +297,11 @@
 
       .piece__info-button {
         position: absolute;
-        top: 12px;
-        left: 18px;
+        top: calc(12px * var(--piece-scale));
+        left: calc(18px * var(--piece-scale));
         z-index: 40;
-        width: 26px;
-        height: 26px;
+        width: calc(26px * var(--piece-scale));
+        height: calc(26px * var(--piece-scale));
         display: grid;
         place-items: center;
         padding: 0;
@@ -308,7 +309,7 @@
         border-radius: 999px;
         background: rgba(255, 252, 245, 0.96);
         color: var(--ink);
-        font-size: 1rem;
+        font-size: calc(1rem * var(--piece-scale));
         font-weight: 700;
         line-height: 1;
         cursor: pointer;
@@ -322,8 +323,8 @@
 
       .piece__info-popup {
         position: absolute;
-        left: 18px;
-        top: 44px;
+        left: calc(18px * var(--piece-scale));
+        top: calc(44px * var(--piece-scale));
         z-index: 41;
         width: min(280px, calc(100% - 24px));
         padding: 14px 16px;
@@ -460,14 +461,13 @@
     </template>
 
     <script>
-      const PIECE_WIDTH = 192;
-      const PIECE_HEIGHT = 146;
+      const BASE_PIECE_WIDTH = 192;
+      const BASE_PIECE_HEIGHT = 146;
       const SVG_VIEWBOX_WIDTH = 124;
       const SVG_VIEWBOX_HEIGHT = 104;
       const BODY_SPAN_X = 92;
       const BODY_SPAN_Y = 80;
-      const SNAP_STEP_X = (PIECE_WIDTH * BODY_SPAN_X) / SVG_VIEWBOX_WIDTH;
-      const SNAP_STEP_Y = (PIECE_HEIGHT * BODY_SPAN_Y) / SVG_VIEWBOX_HEIGHT;
+      const MOBILE_PIECE_SCALE = 0.5;
       const SNAP_THRESHOLD = 108;
       const SOUND_FILES = {
         snap: "./assets/sounds/snap.wav",
@@ -479,8 +479,8 @@
         {
           id: "physical",
           label: "physical",
-          width: PIECE_WIDTH,
-          height: PIECE_HEIGHT,
+          width: BASE_PIECE_WIDTH,
+          height: BASE_PIECE_HEIGHT,
           color: "#ee8c64",
           hoverText:
             "The physical environment includes the tangible setting-space, materials, and sensory conditions-that enable or constrain engagement.",
@@ -488,8 +488,8 @@
         {
           id: "emotional",
           label: "emotional",
-          width: PIECE_WIDTH,
-          height: PIECE_HEIGHT,
+          width: BASE_PIECE_WIDTH,
+          height: BASE_PIECE_HEIGHT,
           color: "#f2b06d",
           hoverText:
             "The emotional environment supports psychological safety, self-understanding, and resilience.",
@@ -497,8 +497,8 @@
         {
           id: "intellectual",
           label: "intellectual",
-          width: PIECE_WIDTH,
-          height: PIECE_HEIGHT,
+          width: BASE_PIECE_WIDTH,
+          height: BASE_PIECE_HEIGHT,
           color: "#f1d272",
           hoverText:
             "The intellectual environment focuses on challenge, complexity, and opportunities to engage deeply with ideas.",
@@ -506,8 +506,8 @@
         {
           id: "social",
           label: "social",
-          width: PIECE_WIDTH,
-          height: PIECE_HEIGHT,
+          width: BASE_PIECE_WIDTH,
+          height: BASE_PIECE_HEIGHT,
           color: "#83c7a8",
           hoverText:
             "The social environment involves relationships, collaboration, and a sense of belonging within a learning community.",
@@ -515,8 +515,8 @@
         {
           id: "creative",
           label: "creative",
-          width: PIECE_WIDTH,
-          height: PIECE_HEIGHT,
+          width: BASE_PIECE_WIDTH,
+          height: BASE_PIECE_HEIGHT,
           color: "#6eb2d4",
           hoverText:
             "The creative environment emphasizes curiosity, problem finding, and flexible, original thinking.",
@@ -583,6 +583,7 @@
         inPlay: [],
         connectedIds: [],
         soundCache: {},
+        pieceScale: 1,
         originX: null,
         originY: null,
         activeInfoId: null,
@@ -634,10 +635,14 @@
             Object.assign({}, piece, {
               node,
               bankIndex: state.pieces.size,
+              baseWidth: piece.width,
+              baseHeight: piece.height,
               inPlay: false,
               connected: false,
               x: 0,
               y: 0,
+              width: piece.width,
+              height: piece.height,
               col: 0,
               row: 0,
             })
@@ -645,9 +650,11 @@
         });
 
         document.addEventListener("pointerdown", handleDocumentPointerDown);
+        applyResponsivePieceMetrics();
         syncPlayAreaHeight();
         if (window.ResizeObserver) {
           const resizeObserver = new ResizeObserver(function () {
+            applyResponsivePieceMetrics();
             syncPlayAreaHeight();
             layoutBankedPieces();
             if (state.inPlay.length) {
@@ -665,6 +672,38 @@
         const baseHeight = window.innerWidth <= 560 ? 360 : window.innerWidth <= 860 ? 420 : 500;
         const blendedHeight = Math.round((baseHeight + tray.offsetHeight) / 2);
         playArea.style.minHeight = blendedHeight + "px";
+      }
+
+      function getPieceScale() {
+        return window.innerWidth <= 560 ? MOBILE_PIECE_SCALE : 1;
+      }
+
+      function getPieceWidth() {
+        return Math.round(BASE_PIECE_WIDTH * state.pieceScale);
+      }
+
+      function getPieceHeight() {
+        return Math.round(BASE_PIECE_HEIGHT * state.pieceScale);
+      }
+
+      function getSnapStepX() {
+        return (getPieceWidth() * BODY_SPAN_X) / SVG_VIEWBOX_WIDTH;
+      }
+
+      function getSnapStepY() {
+        return (getPieceHeight() * BODY_SPAN_Y) / SVG_VIEWBOX_HEIGHT;
+      }
+
+      function applyResponsivePieceMetrics() {
+        state.pieceScale = getPieceScale();
+        state.pieces.forEach(function (piece) {
+          piece.width = Math.round(piece.baseWidth * state.pieceScale);
+          piece.height = Math.round(piece.baseHeight * state.pieceScale);
+          piece.node.style.setProperty("--piece-width", piece.width + "px");
+          piece.node.style.setProperty("--piece-height", piece.height + "px");
+          piece.node.style.setProperty("--piece-scale", String(state.pieceScale));
+          fitLabel(piece.node.querySelector(".piece__label"));
+        });
       }
 
       function getBoardRect() {
@@ -695,7 +734,7 @@
         const bankRect = bank.getBoundingClientRect();
         const left = bankRect.left - boardRect.left + 16;
         const top = bankRect.top - boardRect.top + 6;
-        const stepY = PIECE_HEIGHT + 16;
+        const stepY = getPieceHeight() + 16;
 
         PIECES.forEach(function (pieceData, index) {
           const piece = state.pieces.get(pieceData.id);
@@ -842,8 +881,8 @@
             piece.connected = true;
             piece.col = slot.col;
             piece.row = slot.row;
-            state.originX = x - piece.col * SNAP_STEP_X;
-            state.originY = y - piece.row * SNAP_STEP_Y;
+            state.originX = x - piece.col * getSnapStepX();
+            state.originY = y - piece.row * getSnapStepY();
             state.connectedIds = baseConnectedIds.concat(id);
           } else {
             piece.connected = false;
@@ -928,9 +967,9 @@
 
         candidates.forEach(function (candidate) {
           const candidateX =
-            (state.originX === null ? desiredX : state.originX + candidate.col * SNAP_STEP_X);
+            (state.originX === null ? desiredX : state.originX + candidate.col * getSnapStepX());
           const candidateY =
-            (state.originY === null ? desiredY : state.originY + candidate.row * SNAP_STEP_Y);
+            (state.originY === null ? desiredY : state.originY + candidate.row * getSnapStepY());
           const score = distance(candidateX, candidateY, desiredX, desiredY);
           if (score < bestScore) {
             best = candidate;
@@ -972,14 +1011,18 @@
         const maxCol = Math.max.apply(null, cols);
         const minRow = Math.min.apply(null, rows);
         const maxRow = Math.max.apply(null, rows);
-        const clusterWidth = PIECE_WIDTH + (maxCol - minCol) * SNAP_STEP_X;
-        const clusterHeight = PIECE_HEIGHT + (maxRow - minRow) * SNAP_STEP_Y;
-        const minOriginX = 8 - minCol * SNAP_STEP_X;
-        const maxOriginX = areaWidth - PIECE_WIDTH - 8 - maxCol * SNAP_STEP_X;
-        const minOriginY = 8 - minRow * SNAP_STEP_Y;
-        const maxOriginY = areaHeight - PIECE_HEIGHT - 8 - maxRow * SNAP_STEP_Y;
-        const centeredOriginX = (areaWidth - clusterWidth) / 2 - minCol * SNAP_STEP_X;
-        const centeredOriginY = (areaHeight - clusterHeight) / 2 - minRow * SNAP_STEP_Y;
+        const pieceWidth = getPieceWidth();
+        const pieceHeight = getPieceHeight();
+        const snapStepX = getSnapStepX();
+        const snapStepY = getSnapStepY();
+        const clusterWidth = pieceWidth + (maxCol - minCol) * snapStepX;
+        const clusterHeight = pieceHeight + (maxRow - minRow) * snapStepY;
+        const minOriginX = 8 - minCol * snapStepX;
+        const maxOriginX = areaWidth - pieceWidth - 8 - maxCol * snapStepX;
+        const minOriginY = 8 - minRow * snapStepY;
+        const maxOriginY = areaHeight - pieceHeight - 8 - maxRow * snapStepY;
+        const centeredOriginX = (areaWidth - clusterWidth) / 2 - minCol * snapStepX;
+        const centeredOriginY = (areaHeight - clusterHeight) / 2 - minRow * snapStepY;
 
         state.originX = clamp(
           state.originX === null ? centeredOriginX : state.originX,
@@ -993,8 +1036,8 @@
         );
 
         piecesInPlay.forEach(function (piece) {
-          piece.x = playBounds.left + state.originX + piece.col * SNAP_STEP_X;
-          piece.y = playBounds.top + state.originY + piece.row * SNAP_STEP_Y;
+          piece.x = playBounds.left + state.originX + piece.col * snapStepX;
+          piece.y = playBounds.top + state.originY + piece.row * snapStepY;
           renderPiece(piece);
         });
       }
@@ -1004,8 +1047,8 @@
         piece.node.style.top = piece.y + "px";
       }
 
-      function fitLabel(labelNode, piece) {
-        labelNode.style.fontSize = "13.8px";
+      function fitLabel(labelNode) {
+        labelNode.style.fontSize = 13.8 * state.pieceScale + "px";
       }
 
       function updateComboPanel() {
@@ -1136,7 +1179,9 @@
       }
 
       window.addEventListener("resize", function () {
+        applyResponsivePieceMetrics();
         syncPlayAreaHeight();
+        layoutBankedPieces();
         if (state.inPlay.length) {
           layoutCluster();
         }
