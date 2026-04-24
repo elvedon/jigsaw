@@ -376,6 +376,10 @@
           grid-template-columns: 1fr;
         }
 
+        .piece-bank {
+          min-height: 150px;
+        }
+
         .play-area {
           min-height: 420px;
         }
@@ -678,6 +682,10 @@
         return window.innerWidth <= 560 ? MOBILE_PIECE_SCALE : 1;
       }
 
+      function isMobileTrayLayout() {
+        return window.innerWidth <= 860;
+      }
+
       function getPieceWidth() {
         return Math.round(BASE_PIECE_WIDTH * state.pieceScale);
       }
@@ -732,9 +740,17 @@
       function layoutBankedPieces() {
         const boardRect = getBoardRect();
         const bankRect = bank.getBoundingClientRect();
+        const pieceWidth = getPieceWidth();
+        const pieceHeight = getPieceHeight();
         const left = bankRect.left - boardRect.left + 16;
         const top = bankRect.top - boardRect.top + 6;
-        const stepY = getPieceHeight() + 16;
+        const mobileLayout = isMobileTrayLayout();
+        const stepY = pieceHeight + 16;
+        const availableWidth = Math.max(bankRect.width - pieceWidth - 32, 0);
+        const stepX =
+          PIECES.length > 1
+            ? Math.min(availableWidth / (PIECES.length - 1), pieceWidth + 20)
+            : 0;
 
         PIECES.forEach(function (pieceData, index) {
           const piece = state.pieces.get(pieceData.id);
@@ -742,8 +758,8 @@
             return;
           }
 
-          piece.x = left;
-          piece.y = top + index * stepY;
+          piece.x = mobileLayout ? left + index * stepX : left;
+          piece.y = mobileLayout ? top : top + index * stepY;
           renderPiece(piece);
         });
       }
