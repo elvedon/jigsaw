@@ -6,8 +6,8 @@
     <title>The 5 Environments</title>
     <style>
       :root {
-        --bg-top: #f5efe2;
-        --bg-bottom: #d9edf3;
+        --bg-top: #ddeaf4;
+        --bg-bottom: #c8dceb;
         --ink: #17324d;
         --muted: #50697e;
         --panel: rgba(255, 252, 245, 0.88);
@@ -25,7 +25,7 @@
         font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.9), transparent 32%),
           linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
       }
 
@@ -49,13 +49,14 @@
         letter-spacing: 0.18em;
         font-size: 0.78rem;
         font-weight: 800;
-        color: #9b5a2b;
+        color: #1f9aa8;
       }
 
       .intro h1 {
         margin: 0;
         font-size: clamp(1.8rem, 4vw, 3.1rem);
         line-height: 0.95;
+        text-transform: uppercase;
       }
 
       .lede {
@@ -67,10 +68,18 @@
       }
 
       .board {
+        position: relative;
         display: grid;
         grid-template-columns: minmax(220px, 280px) 1fr;
         gap: 20px;
         align-items: start;
+      }
+
+      .board__layer {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
       }
 
       .tray,
@@ -83,6 +92,8 @@
       }
 
       .tray {
+        position: relative;
+        z-index: 1;
         padding: 18px;
       }
 
@@ -98,9 +109,12 @@
         display: grid;
         grid-template-columns: 1fr;
         gap: 16px;
+        min-height: 794px;
       }
 
       .workspace-wrap {
+        position: relative;
+        z-index: 1;
         display: grid;
         gap: 18px;
       }
@@ -162,11 +176,12 @@
 
       .combo-panel p {
         margin: 0;
-        line-height: 1.55;
+        line-height: 1.6;
       }
 
       .combo-copy {
-        line-height: 1.55;
+        font-size: 1.2rem;
+        line-height: 1.65;
       }
 
       .combo-copy p {
@@ -180,13 +195,14 @@
       .combo-copy__title {
         margin-top: 16px;
         font-weight: 800;
-        color: #9b5a2b;
+        color: #1f9aa8;
       }
 
       #combo-title {
         margin-bottom: 8px;
+        font-size: 1.4rem;
         font-weight: 800;
-        color: #9b5a2b;
+        color: #1f9aa8;
       }
 
       .piece {
@@ -203,6 +219,7 @@
         cursor: grab;
         touch-action: none;
         user-select: none;
+        pointer-events: auto;
         filter: drop-shadow(0 14px 22px var(--piece-shadow));
         transition: transform 160ms ease, filter 160ms ease;
       }
@@ -258,6 +275,25 @@
         pointer-events: none;
       }
 
+      .piece__label--with-icon {
+        inset: 19% 25% 36%;
+      }
+
+      .piece__icon {
+        position: absolute;
+        left: 50%;
+        bottom: 26%;
+        transform: translateX(-50%);
+        display: none;
+        font-size: 2.3rem;
+        line-height: 1;
+        pointer-events: none;
+      }
+
+      .piece__icon.is-visible {
+        display: block;
+      }
+
       .piece__info-button {
         position: absolute;
         top: 12px;
@@ -307,7 +343,7 @@
 
       .piece__fill {
         fill: var(--piece-color);
-        stroke: rgba(17, 37, 56, 0.95);
+        stroke: #50697e;
         stroke-width: 2.2;
         vector-effect: non-scaling-stroke;
       }
@@ -374,6 +410,7 @@
       </section>
 
       <section class="board">
+        <div id="piece-layer" class="board__layer" aria-hidden="true"></div>
         <aside class="tray">
           <h2>Drag any piece in (or out) of the play area</h2>
           <div id="piece-bank" class="piece-bank" aria-label="Puzzle pieces"></div>
@@ -418,6 +455,7 @@
         </button>
         <div class="piece__info-popup" hidden></div>
         <span class="piece__label"></span>
+        <span class="piece__icon" aria-hidden="true"></span>
       </div>
     </template>
 
@@ -530,7 +568,9 @@
       const FULL_TEXT =
         "All five pieces together form a whole-self picture: your body, feelings, thoughts, relationships, and imagination reinforce each other into a resilient, connected life.";
 
+      const board = document.querySelector(".board");
       const bank = document.querySelector("#piece-bank");
+      const pieceLayer = document.querySelector("#piece-layer");
       const playArea = document.querySelector("#play-area");
       const tray = document.querySelector(".tray");
       const comboPanel = document.querySelector("#combo-panel");
@@ -557,16 +597,43 @@
           node.style.setProperty("--piece-height", piece.height + "px");
           node.style.setProperty("--piece-color", piece.color);
           node.setAttribute("aria-label", piece.label);
-          node.querySelector(".piece__label").textContent = piece.label;
+          const labelNode = node.querySelector(".piece__label");
+          const iconNode = node.querySelector(".piece__icon");
+          labelNode.textContent = piece.label;
           node.querySelector(".piece__info-popup").textContent = piece.hoverText;
-          fitLabel(node.querySelector(".piece__label"), piece);
-          placeInBank(node);
+          if (piece.id === "intellectual") {
+            labelNode.classList.add("piece__label--with-icon");
+            iconNode.textContent = "🧠";
+            iconNode.classList.add("is-visible");
+          }
+          if (piece.id === "social") {
+            labelNode.classList.add("piece__label--with-icon");
+            iconNode.textContent = "👬";
+            iconNode.classList.add("is-visible");
+          }
+          if (piece.id === "physical") {
+            labelNode.classList.add("piece__label--with-icon");
+            iconNode.textContent = "🤸";
+            iconNode.classList.add("is-visible");
+          }
+          if (piece.id === "emotional") {
+            labelNode.classList.add("piece__label--with-icon");
+            iconNode.textContent = "💗";
+            iconNode.classList.add("is-visible");
+          }
+          if (piece.id === "creative") {
+            labelNode.classList.add("piece__label--with-icon");
+            iconNode.textContent = "💡";
+            iconNode.classList.add("is-visible");
+          }
+          fitLabel(labelNode, piece);
           bindPieceEvents(node, piece.id);
-          bank.appendChild(node);
+          pieceLayer.appendChild(node);
           state.pieces.set(
             piece.id,
             Object.assign({}, piece, {
               node,
+              bankIndex: state.pieces.size,
               inPlay: false,
               connected: false,
               x: 0,
@@ -577,13 +644,20 @@
           );
         });
 
-        playArea.addEventListener("dragover", handleAreaDragOver);
         document.addEventListener("pointerdown", handleDocumentPointerDown);
         syncPlayAreaHeight();
         if (window.ResizeObserver) {
-          const resizeObserver = new ResizeObserver(syncPlayAreaHeight);
+          const resizeObserver = new ResizeObserver(function () {
+            syncPlayAreaHeight();
+            layoutBankedPieces();
+            if (state.inPlay.length) {
+              layoutCluster();
+            }
+          });
           resizeObserver.observe(tray);
+          resizeObserver.observe(board);
         }
+        layoutBankedPieces();
         updateComboPanel();
       }
 
@@ -593,10 +667,46 @@
         playArea.style.minHeight = blendedHeight + "px";
       }
 
-      function placeInBank(node) {
-        node.style.position = "relative";
-        node.style.left = "0px";
-        node.style.top = "0px";
+      function getBoardRect() {
+        return board.getBoundingClientRect();
+      }
+
+      function getBoardPoint(clientX, clientY) {
+        const boardRect = getBoardRect();
+        return {
+          x: clientX - boardRect.left,
+          y: clientY - boardRect.top,
+        };
+      }
+
+      function getPlayAreaBounds() {
+        const boardRect = getBoardRect();
+        const playRect = playArea.getBoundingClientRect();
+        return {
+          left: playRect.left - boardRect.left,
+          top: playRect.top - boardRect.top,
+          width: playRect.width,
+          height: playRect.height,
+        };
+      }
+
+      function layoutBankedPieces() {
+        const boardRect = getBoardRect();
+        const bankRect = bank.getBoundingClientRect();
+        const left = bankRect.left - boardRect.left + 16;
+        const top = bankRect.top - boardRect.top + 6;
+        const stepY = PIECE_HEIGHT + 16;
+
+        PIECES.forEach(function (pieceData, index) {
+          const piece = state.pieces.get(pieceData.id);
+          if (!piece || piece.inPlay) {
+            return;
+          }
+
+          piece.x = left;
+          piece.y = top + index * stepY;
+          renderPiece(piece);
+        });
       }
 
       function bindPieceEvents(node, id) {
@@ -659,17 +769,15 @@
         const nodeRect = node.getBoundingClientRect();
         const offsetX = event.clientX - nodeRect.left;
         const offsetY = event.clientY - nodeRect.top;
-        const startedInPlay = piece.inPlay;
 
         node.classList.add("dragging");
         node.setPointerCapture(event.pointerId);
-        document.body.appendChild(node);
-        node.style.position = "fixed";
-        node.style.margin = "0";
-        moveFloatingNode(node, event.clientX - offsetX, event.clientY - offsetY);
+        const startPoint = getBoardPoint(event.clientX, event.clientY);
+        moveFloatingNode(node, startPoint.x - offsetX, startPoint.y - offsetY);
 
         function onMove(moveEvent) {
-          moveFloatingNode(node, moveEvent.clientX - offsetX, moveEvent.clientY - offsetY);
+          const point = getBoardPoint(moveEvent.clientX, moveEvent.clientY);
+          moveFloatingNode(node, point.x - offsetX, point.y - offsetY);
         }
 
         function onEnd(endEvent) {
@@ -679,13 +787,14 @@
           node.removeEventListener("pointerup", onEnd);
           node.removeEventListener("pointercancel", onEnd);
 
-          const droppedInPlayArea = withinRect(endEvent.clientX, endEvent.clientY, playArea.getBoundingClientRect());
+          const boardPoint = getBoardPoint(endEvent.clientX, endEvent.clientY);
+          const playBounds = getPlayAreaBounds();
+          const droppedInPlayArea = withinRect(boardPoint.x, boardPoint.y, playBounds);
           if (droppedInPlayArea) {
-            const playRect = playArea.getBoundingClientRect();
             dropPieceIntoPlay(
               id,
-              clamp(endEvent.clientX - playRect.left - offsetX, 8, playRect.width - piece.width - 8),
-              clamp(endEvent.clientY - playRect.top - offsetY, 8, playRect.height - piece.height - 8)
+              clamp(boardPoint.x - playBounds.left - offsetX, 8, playBounds.width - piece.width - 8),
+              clamp(boardPoint.y - playBounds.top - offsetY, 8, playBounds.height - piece.height - 8)
             );
           } else {
             movePieceToBank(id);
@@ -717,10 +826,8 @@
         }
 
         piece.inPlay = true;
-        playArea.appendChild(piece.node);
         playArea.classList.add("has-pieces");
         piece.node.classList.add("in-play");
-        piece.node.style.position = "absolute";
 
         if (!baseConnectedIds.length) {
           piece.connected = true;
@@ -742,8 +849,9 @@
             piece.connected = false;
             piece.col = 0;
             piece.row = 0;
-            piece.x = clamp(x, 8, playArea.clientWidth - piece.width - 8);
-            piece.y = clamp(y, 8, playArea.clientHeight - piece.height - 8);
+            const playBounds = getPlayAreaBounds();
+            piece.x = playBounds.left + clamp(x, 8, playBounds.width - piece.width - 8);
+            piece.y = playBounds.top + clamp(y, 8, playBounds.height - piece.height - 8);
             renderPiece(piece);
             state.connectedIds = baseConnectedIds;
             if (wasInPlay) {
@@ -776,9 +884,8 @@
         state.connectedIds = state.connectedIds.filter(function (pieceId) {
           return pieceId !== id;
         });
-        bank.appendChild(piece.node);
         piece.node.classList.remove("in-play");
-        placeInBank(piece.node);
+        layoutBankedPieces();
 
         if (state.inPlay.length === 0) {
           playArea.classList.remove("has-pieces");
@@ -851,6 +958,7 @@
 
         const areaWidth = playArea.clientWidth;
         const areaHeight = playArea.clientHeight;
+        const playBounds = getPlayAreaBounds();
         const piecesInPlay = state.connectedIds.map(function (id) {
           return state.pieces.get(id);
         });
@@ -885,8 +993,8 @@
         );
 
         piecesInPlay.forEach(function (piece) {
-          piece.x = state.originX + piece.col * SNAP_STEP_X;
-          piece.y = state.originY + piece.row * SNAP_STEP_Y;
+          piece.x = playBounds.left + state.originX + piece.col * SNAP_STEP_X;
+          piece.y = playBounds.top + state.originY + piece.row * SNAP_STEP_Y;
           renderPiece(piece);
         });
       }
@@ -1019,7 +1127,12 @@
       }
 
       function withinRect(x, y, rect) {
-        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        return (
+          x >= rect.left &&
+          x <= rect.left + rect.width &&
+          y >= rect.top &&
+          y <= rect.top + rect.height
+        );
       }
 
       window.addEventListener("resize", function () {
