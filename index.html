@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Whole-Self Puzzle</title>
+    <style>
+      :root {
+        --bg-top: #f5efe2;
+        --bg-bottom: #d9edf3;
+        --ink: #17324d;
+        --muted: #50697e;
+        --panel: rgba(255, 252, 245, 0.88);
+        --panel-border: rgba(23, 50, 77, 0.12);
+        --shadow: 0 18px 50px rgba(23, 50, 77, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 32%),
+          linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .game-shell {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 32px 0 36px;
+      }
+
+      .intro {
+        margin-bottom: 26px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: #9b5a2b;
+      }
+
+      .intro h1 {
+        margin: 0;
+        font-size: clamp(2.2rem, 5vw, 4rem);
+        line-height: 0.95;
+      }
+
+      .lede {
+        margin: 14px 0 0;
+        font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+        font-weight: 600;
+        line-height: 1.4;
+        color: var(--muted);
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: minmax(220px, 280px) 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .tray,
+      .combo-panel {
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .tray {
+        padding: 18px;
+      }
+
+      .tray h2,
+      .combo-panel h2 {
+        margin: 0 0 14px;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .piece-bank {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .workspace-wrap {
+        display: grid;
+        gap: 18px;
+      }
+
+      .play-area {
+        position: relative;
+        min-height: 500px;
+        overflow: hidden;
+        border-radius: 34px;
+        border: 2px dashed rgba(23, 50, 77, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+        background:
+          radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.75), transparent 18%),
+          radial-gradient(circle at 88% 18%, rgba(255, 210, 164, 0.38), transparent 22%),
+          linear-gradient(180deg, rgba(255, 248, 234, 0.94), rgba(208, 232, 239, 0.88));
+      }
+
+      .play-area__hint {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(70%, 360px);
+        text-align: center;
+        color: rgba(23, 50, 77, 0.45);
+        font-size: 1rem;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+      }
+
+      .play-area.has-pieces .play-area__hint {
+        opacity: 0;
+      }
+
+      .combo-panel {
+        padding: 18px 20px 20px;
+        min-height: 120px;
+      }
+
+      .combo-panel p {
+        margin: 0;
+        line-height: 1.55;
+      }
+
+      .combo-copy {
+        line-height: 1.55;
+      }
+
+      .combo-copy p {
+        margin: 0;
+      }
+
+      .combo-copy p + p {
+        margin-top: 10px;
+      }
+
+      .combo-copy__title {
+        margin-top: 16px;
+        font-weight: 800;
+        color: #9b5a2b;
+      }
+
+      #combo-title {
+        margin-bottom: 8px;
+        font-weight: 800;
+        color: #9b5a2b;
+      }
+
+      .piece {
+        --piece-width: 168px;
+        --piece-height: 128px;
+        --piece-color: #f7ad6f;
+        --piece-shadow: rgba(80, 64, 44, 0.22);
+        position: absolute;
+        width: var(--piece-width);
+        height: var(--piece-height);
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        filter: drop-shadow(0 14px 22px var(--piece-shadow));
+        transition: transform 160ms ease, filter 160ms ease;
+      }
+
+      .piece__svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+      }
+
+      .piece:hover,
+      .piece:focus-visible {
+        transform: translateY(-3px) scale(1.02);
+      }
+
+      .piece.dragging {
+        cursor: grabbing;
+        transform: scale(1.05);
+        z-index: 20;
+        filter: drop-shadow(0 20px 30px rgba(23, 50, 77, 0.26));
+      }
+
+      .piece.in-play {
+        z-index: 5;
+      }
+
+      .piece.info-open {
+        z-index: 50;
+      }
+
+      .piece__label {
+        position: absolute;
+        inset: 26% 25% 26%;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 0.98;
+        text-transform: uppercase;
+        overflow-wrap: anywhere;
+        pointer-events: none;
+      }
+
+      .piece__info-button {
+        position: absolute;
+        top: 12px;
+        left: 18px;
+        z-index: 40;
+        width: 26px;
+        height: 26px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 1.5px solid rgba(17, 37, 56, 0.95);
+        border-radius: 999px;
+        background: rgba(255, 252, 245, 0.96);
+        color: var(--ink);
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .piece__info-button:hover,
+      .piece__info-button:focus-visible {
+        background: white;
+        transform: scale(1.04);
+      }
+
+      .piece__info-popup {
+        position: absolute;
+        left: 18px;
+        top: 44px;
+        z-index: 41;
+        width: min(280px, calc(100% - 24px));
+        padding: 14px 16px;
+        border: 1px solid rgba(17, 37, 56, 0.16);
+        border-radius: 14px;
+        background: rgba(255, 252, 245, 0.97);
+        box-shadow: 0 10px 24px rgba(23, 50, 77, 0.18);
+        font-size: 0.94rem;
+        line-height: 1.45;
+        text-align: left;
+        color: var(--ink);
+      }
+
+      .piece__info-popup[hidden] {
+        display: none;
+      }
+
+      .piece__fill {
+        fill: var(--piece-color);
+        stroke: rgba(17, 37, 56, 0.95);
+        stroke-width: 2.2;
+        vector-effect: non-scaling-stroke;
+      }
+
+      .piece__shine {
+        fill: rgba(255, 255, 255, 0.22);
+      }
+
+      @media (max-width: 860px) {
+        .board {
+          grid-template-columns: 1fr;
+        }
+
+        .play-area {
+          min-height: 420px;
+        }
+
+        .piece-bank {
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+      }
+
+      @media (max-width: 560px) {
+        .game-shell {
+          width: min(100vw - 20px, 100%);
+          padding-top: 20px;
+        }
+
+        .play-area {
+          min-height: 360px;
+          border-radius: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="intro">
+        <p class="eyebrow">Interactive Puzzle</p>
+        <h1>The Five Environments</h1>
+        <p class="lede">
+          The power of the five environments (physical, emotional, social,
+          creative, and intellectual) lies in their arrangement: different
+          configurations create different possibilities for security,
+          engagement, and growth.
+        </p>
+      </section>
+
+      <section class="board">
+        <aside class="tray">
+          <h2>Drag any piece in (or out) of the play area</h2>
+          <div id="piece-bank" class="piece-bank" aria-label="Puzzle pieces"></div>
+        </aside>
+
+        <section class="workspace-wrap">
+          <section id="combo-panel" class="combo-panel" aria-live="polite">
+            <h2>Connection Insight</h2>
+            <p id="combo-title">No pieces connected yet.</p>
+            <div id="combo-text" class="combo-copy">
+              Start by dragging one or more pieces into the play area.
+            </div>
+          </section>
+          <div
+            id="play-area"
+            class="play-area"
+            aria-label="Play area"
+            aria-live="polite"
+          >
+            <div class="play-area__hint">
+              Drop pieces here. They will snap together automatically.
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="piece-template">
+      <div class="piece" role="group">
+        <svg class="piece__svg" viewBox="-2 -2 124 104" aria-hidden="true">
+          <path
+            class="piece__fill"
+            d="M0 0H34C36.5 0 38 1.5 38 4V8C38 15 43.5 21 50 21C56.5 21 62 15 62 8V4C62 1.5 63.5 0 66 0H100V34C100 36.5 101.5 38 104 38H108C115 38 121 43.5 121 50C121 56.5 115 62 108 62H104C101.5 62 100 63.5 100 66V80H66C63.5 80 62 81.5 62 84C62 92.5 56.5 99 50 99C43.5 99 38 92.5 38 84C38 81.5 36.5 80 34 80H0V66C0 63.5 1.5 62 4 62H8C15 62 21 56.5 21 50C21 43.5 15 38 8 38H4C1.5 38 0 36.5 0 34Z"
+          />
+          <path
+            class="piece__shine"
+            d="M6 6H36C42 6 44 9.5 44 15V17C44 21 47 24 51 24C55 24 58 21 58 17V15C58 9.5 60 6 66 6H94V32C94 37 97.5 40 103 40H106C111 40 115 43.5 115 48C115 51 113.2 53.2 110.5 54.5C107 47.5 100.5 44 94 44H88C80 44 77 40.5 77 34V28H24V34C24 40.5 19 44 12 44H8C7.3 44 6.6 44 6 44.1V6Z"
+          />
+        </svg>
+        <button class="piece__info-button" type="button" aria-label="Show description">
+          ?
+        </button>
+        <div class="piece__info-popup" hidden></div>
+        <span class="piece__label"></span>
+      </div>
+    </template>
+
+    <script>
+      const PIECE_WIDTH = 192;
+      const PIECE_HEIGHT = 146;
+      const SVG_VIEWBOX_WIDTH = 124;
+      const SVG_VIEWBOX_HEIGHT = 104;
+      const BODY_SPAN_X = 92;
+      const BODY_SPAN_Y = 80;
+      const SNAP_STEP_X = (PIECE_WIDTH * BODY_SPAN_X) / SVG_VIEWBOX_WIDTH;
+      const SNAP_STEP_Y = (PIECE_HEIGHT * BODY_SPAN_Y) / SVG_VIEWBOX_HEIGHT;
+      const SNAP_THRESHOLD = 84;
+
+      const PIECES = [
+        {
+          id: "physical",
+          label: "physical",
+          width: PIECE_WIDTH,
+          height: PIECE_HEIGHT,
+          color: "#ee8c64",
+          hoverText:
+            "The physical environment includes the tangible setting-space, materials, and sensory conditions-that enable or constrain engagement.",
+        },
+        {
+          id: "emotional",
+          label: "emotional",
+          width: PIECE_WIDTH,
+          height: PIECE_HEIGHT,
+          color: "#f2b06d",
+          hoverText:
+            "The emotional environment supports psychological safety, self-understanding, and resilience.",
+        },
+        {
+          id: "intellectual",
+          label: "intellectual",
+          width: PIECE_WIDTH,
+          height: PIECE_HEIGHT,
+          color: "#f1d272",
+          hoverText:
+            "The intellectual environment focuses on challenge, complexity, and opportunities to engage deeply with ideas.",
+        },
+        {
+          id: "social",
+          label: "social",
+          width: PIECE_WIDTH,
+          height: PIECE_HEIGHT,
+          color: "#83c7a8",
+          hoverText:
+            "The social environment involves relationships, collaboration, and a sense of belonging within a learning community.",
+        },
+        {
+          id: "creative",
+          label: "creative",
+          width: PIECE_WIDTH,
+          height: PIECE_HEIGHT,
+          color: "#6eb2d4",
+          hoverText:
+            "The creative environment emphasizes curiosity, problem finding, and flexible, original thinking.",
+        },
+      ];
+
+      const SINGLE_TEXT = {
+        physical: "Physical strength is the base layer. It gives energy, steadiness, and a place to start.",
+        emotional: "Emotional awareness makes the inner climate visible, so the rest of the system can respond with care.",
+        intellectual: "Intellectual growth turns curiosity into pattern-finding, helping you make sense of what matters.",
+        social: "Social connection adds belonging. It reminds you that support, feedback, and joy often happen with others.",
+        creative: "Creative play opens room for experimentation, expression, and new ways to move through challenge.",
+      };
+
+      const PAIR_TEXT = {
+        "creative|emotional": "Creative and emotional pieces together turn feeling into expression, making inner experiences easier to name and share.",
+        "creative|intellectual": "Creative and intellectual pieces pair imagination with analysis, helping ideas become thoughtful experiments.",
+        "creative|physical": "Creative and physical pieces connect when movement, making, or hands-on practice bring ideas into the body.",
+        "creative|social": "Creative and social pieces build community through shared stories, collaboration, and playful risk-taking.",
+        "emotional|intellectual": "Emotional and intellectual pieces connect when reflection meets insight, creating clarity instead of overwhelm.",
+        "emotional|physical": "Emotional and physical pieces connect when body cues reveal stress, rest, comfort, and resilience.",
+        "emotional|social": "Emotional and social pieces connect through empathy, listening, and relationships that feel safe enough to be real.",
+        "intellectual|physical": "Intellectual and physical pieces connect when knowledge becomes practice, habit, training, and skill.",
+        "intellectual|social": "Intellectual and social pieces connect through dialogue, mentorship, and the exchange of perspectives.",
+        "physical|social": "Physical and social pieces connect when shared activity creates trust, rhythm, and a sense of team.",
+      };
+
+      const TRIPLE_TEXT = {
+        "creative|emotional|intellectual": "Creative, emotional, and intellectual pieces together support meaning-making: you feel deeply, think clearly, and shape something new from both.",
+        "creative|emotional|physical": "Creative, emotional, and physical pieces together transform emotion into embodied action like dance, craft, movement, or ritual.",
+        "creative|emotional|social": "Creative, emotional, and social pieces together make room for vulnerable expression that strengthens connection.",
+        "creative|intellectual|physical": "Creative, intellectual, and physical pieces together help ideas leave the sketchbook and become practiced reality.",
+        "creative|intellectual|social": "Creative, intellectual, and social pieces together create collaborative innovation, where ideas sharpen through shared making.",
+        "creative|physical|social": "Creative, physical, and social pieces together bring people together around active play, building momentum and joy.",
+        "emotional|intellectual|physical": "Emotional, intellectual, and physical pieces together support grounded self-understanding, where reflection turns into sustainable action.",
+        "emotional|intellectual|social": "Emotional, intellectual, and social pieces together create wise conversation, where insight and empathy shape relationships.",
+        "emotional|physical|social": "Emotional, physical, and social pieces together help care become visible through presence, support, and shared recovery.",
+        "intellectual|physical|social": "Intellectual, physical, and social pieces together turn learning into teamwork, practice, and collective growth.",
+      };
+
+      const QUAD_TEXT = {
+        "creative|emotional|intellectual|physical": "With creative, emotional, intellectual, and physical pieces connected, insight becomes embodied expression that can be practiced and refined.",
+        "creative|emotional|intellectual|social": "With creative, emotional, intellectual, and social pieces connected, ideas gain heart and audience, making growth both personal and shared.",
+        "creative|emotional|physical|social": "With creative, emotional, physical, and social pieces connected, care and expression become active, visible, and communal.",
+        "creative|intellectual|physical|social": "With creative, intellectual, physical, and social pieces connected, experimentation becomes collaborative action with real momentum.",
+        "emotional|intellectual|physical|social": "With emotional, intellectual, physical, and social pieces connected, reflection becomes grounded support that can be lived out with others.",
+      };
+
+      const FULL_TEXT =
+        "All five pieces together form a whole-self picture: your body, feelings, thoughts, relationships, and imagination reinforce each other into a resilient, connected life.";
+
+      const bank = document.querySelector("#piece-bank");
+      const playArea = document.querySelector("#play-area");
+      const tray = document.querySelector(".tray");
+      const comboTitle = document.querySelector("#combo-title");
+      const comboText = document.querySelector("#combo-text");
+      const template = document.querySelector("#piece-template");
+
+      const state = {
+        pieces: new Map(),
+        inPlay: [],
+        connectedIds: [],
+        audioContext: null,
+        originX: null,
+        originY: null,
+        activeInfoId: null,
+      };
+
+      function init() {
+        PIECES.forEach((piece) => {
+          const node = template.content.firstElementChild.cloneNode(true);
+          node.dataset.id = piece.id;
+          node.style.setProperty("--piece-width", piece.width + "px");
+          node.style.setProperty("--piece-height", piece.height + "px");
+          node.style.setProperty("--piece-color", piece.color);
+          node.setAttribute("aria-label", piece.label);
+          node.querySelector(".piece__label").textContent = piece.label;
+          node.querySelector(".piece__info-popup").textContent = piece.hoverText;
+          fitLabel(node.querySelector(".piece__label"), piece);
+          placeInBank(node);
+          bindPieceEvents(node, piece.id);
+          bank.appendChild(node);
+          state.pieces.set(
+            piece.id,
+            Object.assign({}, piece, {
+              node,
+              inPlay: false,
+              connected: false,
+              x: 0,
+              y: 0,
+              col: 0,
+              row: 0,
+            })
+          );
+        });
+
+        playArea.addEventListener("dragover", handleAreaDragOver);
+        document.addEventListener("pointerdown", handleDocumentPointerDown);
+        syncPlayAreaHeight();
+        if (window.ResizeObserver) {
+          const resizeObserver = new ResizeObserver(syncPlayAreaHeight);
+          resizeObserver.observe(tray);
+        }
+        updateComboPanel();
+      }
+
+      function syncPlayAreaHeight() {
+        const baseHeight = window.innerWidth <= 560 ? 360 : window.innerWidth <= 860 ? 420 : 500;
+        const blendedHeight = Math.round((baseHeight + tray.offsetHeight) / 2);
+        playArea.style.minHeight = blendedHeight + "px";
+      }
+
+      function placeInBank(node) {
+        node.style.position = "relative";
+        node.style.left = "0px";
+        node.style.top = "0px";
+      }
+
+      function bindPieceEvents(node, id) {
+        const infoButton = node.querySelector(".piece__info-button");
+        infoButton.addEventListener("pointerdown", function (event) {
+          event.stopPropagation();
+        });
+        infoButton.addEventListener("click", function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleInfoPopup(id);
+        });
+
+        node.addEventListener("pointerdown", function (event) {
+          if (event.target.closest(".piece__info-button") || event.target.closest(".piece__info-popup")) {
+            return;
+          }
+          event.preventDefault();
+          closeInfoPopup();
+          startPointerDrag(event, id);
+        });
+      }
+
+      function handleDocumentPointerDown(event) {
+        if (event.target.closest(".piece__info-button") || event.target.closest(".piece__info-popup")) {
+          return;
+        }
+        closeInfoPopup();
+      }
+
+      function toggleInfoPopup(id) {
+        if (state.activeInfoId === id) {
+          closeInfoPopup();
+          return;
+        }
+
+        closeInfoPopup();
+        const piece = state.pieces.get(id);
+        const popup = piece.node.querySelector(".piece__info-popup");
+        piece.node.classList.add("info-open");
+        popup.hidden = false;
+        state.activeInfoId = id;
+      }
+
+      function closeInfoPopup() {
+        if (!state.activeInfoId) {
+          return;
+        }
+        const activePiece = state.pieces.get(state.activeInfoId);
+        if (activePiece) {
+          activePiece.node.classList.remove("info-open");
+          activePiece.node.querySelector(".piece__info-popup").hidden = true;
+        }
+        state.activeInfoId = null;
+      }
+
+      function startPointerDrag(event, id) {
+        const piece = state.pieces.get(id);
+        const node = piece.node;
+        const nodeRect = node.getBoundingClientRect();
+        const offsetX = event.clientX - nodeRect.left;
+        const offsetY = event.clientY - nodeRect.top;
+        const startedInPlay = piece.inPlay;
+
+        node.classList.add("dragging");
+        node.setPointerCapture(event.pointerId);
+        document.body.appendChild(node);
+        node.style.position = "fixed";
+        node.style.margin = "0";
+        moveFloatingNode(node, event.clientX - offsetX, event.clientY - offsetY);
+
+        function onMove(moveEvent) {
+          moveFloatingNode(node, moveEvent.clientX - offsetX, moveEvent.clientY - offsetY);
+        }
+
+        function onEnd(endEvent) {
+          node.classList.remove("dragging");
+          node.releasePointerCapture(endEvent.pointerId);
+          node.removeEventListener("pointermove", onMove);
+          node.removeEventListener("pointerup", onEnd);
+          node.removeEventListener("pointercancel", onEnd);
+
+          const droppedInPlayArea = withinRect(endEvent.clientX, endEvent.clientY, playArea.getBoundingClientRect());
+          if (droppedInPlayArea) {
+            const playRect = playArea.getBoundingClientRect();
+            dropPieceIntoPlay(
+              id,
+              clamp(endEvent.clientX - playRect.left - offsetX, 8, playRect.width - piece.width - 8),
+              clamp(endEvent.clientY - playRect.top - offsetY, 8, playRect.height - piece.height - 8)
+            );
+          } else {
+            movePieceToBank(id);
+            if (startedInPlay) {
+              playClickSound();
+            }
+          }
+        }
+
+        node.addEventListener("pointermove", onMove);
+        node.addEventListener("pointerup", onEnd);
+        node.addEventListener("pointercancel", onEnd);
+      }
+
+      function moveFloatingNode(node, x, y) {
+        node.style.left = x + "px";
+        node.style.top = y + "px";
+      }
+
+      function dropPieceIntoPlay(id, x, y) {
+        const piece = state.pieces.get(id);
+        if (!piece) {
+          return;
+        }
+
+        const baseConnectedIds = state.connectedIds.filter(function (pieceId) {
+          return pieceId !== id;
+        });
+        const wasInPlay = piece.inPlay;
+        if (!piece.inPlay) {
+          state.inPlay.push(id);
+        }
+
+        piece.inPlay = true;
+        playArea.appendChild(piece.node);
+        playArea.classList.add("has-pieces");
+        piece.node.classList.add("in-play");
+        piece.node.style.position = "absolute";
+
+        if (!baseConnectedIds.length) {
+          piece.connected = true;
+          piece.col = 0;
+          piece.row = 0;
+          state.originX = x;
+          state.originY = y;
+          state.connectedIds = [id];
+        } else {
+          const slot = findBestOpenSlot(baseConnectedIds, x, y);
+          if (slot && slot.score <= SNAP_THRESHOLD) {
+            piece.connected = true;
+            piece.col = slot.col;
+            piece.row = slot.row;
+            state.originX = x - piece.col * SNAP_STEP_X;
+            state.originY = y - piece.row * SNAP_STEP_Y;
+            state.connectedIds = baseConnectedIds.concat(id);
+          } else {
+            piece.connected = false;
+            piece.col = 0;
+            piece.row = 0;
+            piece.x = clamp(x, 8, playArea.clientWidth - piece.width - 8);
+            piece.y = clamp(y, 8, playArea.clientHeight - piece.height - 8);
+            renderPiece(piece);
+            state.connectedIds = baseConnectedIds;
+            if (wasInPlay) {
+              layoutCluster();
+            }
+            updateComboPanel();
+            return;
+          }
+        }
+
+        layoutCluster();
+        playClickSound();
+        updateComboPanel();
+      }
+
+      function movePieceToBank(id) {
+        const piece = state.pieces.get(id);
+        if (!piece) {
+          return;
+        }
+
+        piece.inPlay = false;
+        piece.connected = false;
+        state.inPlay = state.inPlay.filter(function (pieceId) {
+          return pieceId !== id;
+        });
+        state.connectedIds = state.connectedIds.filter(function (pieceId) {
+          return pieceId !== id;
+        });
+        bank.appendChild(piece.node);
+        piece.node.classList.remove("in-play");
+        placeInBank(piece.node);
+
+        if (state.inPlay.length === 0) {
+          playArea.classList.remove("has-pieces");
+          state.originX = null;
+          state.originY = null;
+        } else {
+          layoutCluster();
+        }
+
+        updateComboPanel();
+      }
+
+      function findBestOpenSlot(ids, desiredX, desiredY) {
+        const occupied = new Set();
+        ids.forEach(function (pieceId) {
+          const piece = state.pieces.get(pieceId);
+          occupied.add(piece.col + "," + piece.row);
+        });
+
+        const candidates = [];
+        ids.forEach(function (pieceId) {
+          const piece = state.pieces.get(pieceId);
+          [
+            { col: piece.col + 1, row: piece.row },
+            { col: piece.col - 1, row: piece.row },
+            { col: piece.col, row: piece.row + 1 },
+            { col: piece.col, row: piece.row - 1 },
+          ].forEach(function (candidate) {
+            const key = candidate.col + "," + candidate.row;
+            if (!occupied.has(key)) {
+              occupied.add(key);
+              candidates.push(candidate);
+            }
+          });
+        });
+
+        let best = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+
+        candidates.forEach(function (candidate) {
+          const candidateX =
+            (state.originX === null ? desiredX : state.originX + candidate.col * SNAP_STEP_X);
+          const candidateY =
+            (state.originY === null ? desiredY : state.originY + candidate.row * SNAP_STEP_Y);
+          const score = distance(candidateX, candidateY, desiredX, desiredY);
+          if (score < bestScore) {
+            best = candidate;
+            bestScore = score;
+          }
+        });
+
+        if (!best) {
+          return null;
+        }
+
+        return {
+          col: best.col,
+          row: best.row,
+          score: bestScore,
+        };
+      }
+
+      function layoutCluster() {
+        if (!state.connectedIds.length) {
+          state.originX = null;
+          state.originY = null;
+          return;
+        }
+
+        const areaWidth = playArea.clientWidth;
+        const areaHeight = playArea.clientHeight;
+        const piecesInPlay = state.connectedIds.map(function (id) {
+          return state.pieces.get(id);
+        });
+        const cols = piecesInPlay.map(function (piece) {
+          return piece.col;
+        });
+        const rows = piecesInPlay.map(function (piece) {
+          return piece.row;
+        });
+        const minCol = Math.min.apply(null, cols);
+        const maxCol = Math.max.apply(null, cols);
+        const minRow = Math.min.apply(null, rows);
+        const maxRow = Math.max.apply(null, rows);
+        const clusterWidth = PIECE_WIDTH + (maxCol - minCol) * SNAP_STEP_X;
+        const clusterHeight = PIECE_HEIGHT + (maxRow - minRow) * SNAP_STEP_Y;
+        const minOriginX = 8 - minCol * SNAP_STEP_X;
+        const maxOriginX = areaWidth - PIECE_WIDTH - 8 - maxCol * SNAP_STEP_X;
+        const minOriginY = 8 - minRow * SNAP_STEP_Y;
+        const maxOriginY = areaHeight - PIECE_HEIGHT - 8 - maxRow * SNAP_STEP_Y;
+        const centeredOriginX = (areaWidth - clusterWidth) / 2 - minCol * SNAP_STEP_X;
+        const centeredOriginY = (areaHeight - clusterHeight) / 2 - minRow * SNAP_STEP_Y;
+
+        state.originX = clamp(
+          state.originX === null ? centeredOriginX : state.originX,
+          Math.min(minOriginX, maxOriginX),
+          Math.max(minOriginX, maxOriginX)
+        );
+        state.originY = clamp(
+          state.originY === null ? centeredOriginY : state.originY,
+          Math.min(minOriginY, maxOriginY),
+          Math.max(minOriginY, maxOriginY)
+        );
+
+        piecesInPlay.forEach(function (piece) {
+          piece.x = state.originX + piece.col * SNAP_STEP_X;
+          piece.y = state.originY + piece.row * SNAP_STEP_Y;
+          renderPiece(piece);
+        });
+      }
+
+      function renderPiece(piece) {
+        piece.node.style.left = piece.x + "px";
+        piece.node.style.top = piece.y + "px";
+      }
+
+      function fitLabel(labelNode, piece) {
+        labelNode.style.fontSize = "13.8px";
+      }
+
+      function updateComboPanel() {
+        const connectedIds = state.connectedIds.slice().sort();
+        const soloIds = state.inPlay
+          .filter(function (id) {
+            const piece = state.pieces.get(id);
+            return piece && !piece.connected;
+          })
+          .sort();
+
+        if (!connectedIds.length && !soloIds.length) {
+          comboTitle.textContent = "No pieces connected yet.";
+          comboText.textContent = "Start by dragging one or more pieces into the play area.";
+          return;
+        }
+
+        if (connectedIds.length) {
+          comboTitle.textContent = connectedIds.map(capitalize).join(" + ");
+          comboText.innerHTML = "<p>" + getComboText(connectedIds) + "</p>";
+        } else {
+          comboTitle.textContent = capitalize(soloIds[0]);
+          comboText.innerHTML = "<p>" + getComboText([soloIds[0]]) + "</p>";
+        }
+
+        if (soloIds.length) {
+          const soloBlocks = soloIds
+            .map(function (id) {
+              return (
+                '<p class="combo-copy__title">' +
+                capitalize(id) +
+                "</p>" +
+                "<p>" +
+                SINGLE_TEXT[id] +
+                "</p>"
+              );
+            })
+            .join("");
+
+          comboText.innerHTML = connectedIds.length ? comboText.innerHTML + soloBlocks : soloBlocks;
+        }
+      }
+
+      function getComboText(ids) {
+        if (ids.length === 1) {
+          return SINGLE_TEXT[ids[0]];
+        }
+
+        const key = ids.join("|");
+        if (ids.length === 2) {
+          return PAIR_TEXT[key];
+        }
+        if (ids.length === 3) {
+          return TRIPLE_TEXT[key];
+        }
+        if (ids.length === 4) {
+          return QUAD_TEXT[key];
+        }
+        return FULL_TEXT;
+      }
+
+      function playClickSound() {
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) {
+          return;
+        }
+        if (!state.audioContext) {
+          state.audioContext = new AudioContextCtor();
+        }
+
+        const audioContext = state.audioContext;
+        if (audioContext.state === "suspended") {
+          audioContext.resume();
+        }
+
+        const now = audioContext.currentTime;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(690, now);
+        oscillator.frequency.exponentialRampToValueAtTime(430, now + 0.09);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(1800, now);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+
+        oscillator.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(now);
+        oscillator.stop(now + 0.16);
+      }
+
+      function capitalize(value) {
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function distance(ax, ay, bx, by) {
+        return Math.hypot(ax - bx, ay - by);
+      }
+
+      function withinRect(x, y, rect) {
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      }
+
+      window.addEventListener("resize", function () {
+        syncPlayAreaHeight();
+        if (state.inPlay.length) {
+          layoutCluster();
+        }
+      });
+
+      init();
+    </script>
+  </body>
+</html>
