@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Whole-Self Puzzle</title>
+    <title>The 5 Environments</title>
     <style>
       :root {
         --bg-top: #f5efe2;
@@ -54,13 +54,13 @@
 
       .intro h1 {
         margin: 0;
-        font-size: clamp(2.2rem, 5vw, 4rem);
+        font-size: clamp(1.8rem, 4vw, 3.1rem);
         line-height: 0.95;
       }
 
       .lede {
         margin: 14px 0 0;
-        font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+        font-size: clamp(1.08rem, 2vw, 1.45rem);
         font-weight: 600;
         line-height: 1.4;
         color: var(--muted);
@@ -138,6 +138,26 @@
       .combo-panel {
         padding: 18px 20px 20px;
         min-height: 120px;
+        transition:
+          background 260ms ease,
+          border-color 260ms ease,
+          box-shadow 260ms ease,
+          transform 260ms ease;
+      }
+
+      .combo-panel.is-complete {
+        background:
+          linear-gradient(
+            120deg,
+            rgba(255, 218, 214, 0.9),
+            rgba(255, 241, 200, 0.9),
+            rgba(220, 244, 210, 0.9),
+            rgba(209, 236, 255, 0.9),
+            rgba(231, 221, 255, 0.9)
+          );
+        border-color: rgba(155, 90, 43, 0.22);
+        box-shadow: 0 18px 50px rgba(155, 90, 43, 0.18);
+        transform: translateY(-2px);
       }
 
       .combo-panel p {
@@ -216,6 +236,14 @@
         z-index: 50;
       }
 
+      .piece.is-complete {
+        animation: piecePulse 820ms ease;
+        filter:
+          drop-shadow(0 0 8px rgba(255, 235, 170, 0.5))
+          drop-shadow(0 0 14px rgba(255, 202, 92, 0.34))
+          drop-shadow(0 18px 24px rgba(23, 50, 77, 0.22));
+      }
+
       .piece__label {
         position: absolute;
         inset: 26% 25% 26%;
@@ -288,6 +316,24 @@
         fill: rgba(255, 255, 255, 0.22);
       }
 
+      @keyframes piecePulse {
+        0% {
+          transform: scale(1);
+        }
+
+        30% {
+          transform: scale(1.06);
+        }
+
+        60% {
+          transform: scale(1.02);
+        }
+
+        100% {
+          transform: scale(1);
+        }
+      }
+
       @media (max-width: 860px) {
         .board {
           grid-template-columns: 1fr;
@@ -318,7 +364,6 @@
   <body>
     <main class="game-shell">
       <section class="intro">
-        <p class="eyebrow">Interactive Puzzle</p>
         <h1>The Five Environments</h1>
         <p class="lede">
           The power of the five environments (physical, emotional, social,
@@ -385,7 +430,12 @@
       const BODY_SPAN_Y = 80;
       const SNAP_STEP_X = (PIECE_WIDTH * BODY_SPAN_X) / SVG_VIEWBOX_WIDTH;
       const SNAP_STEP_Y = (PIECE_HEIGHT * BODY_SPAN_Y) / SVG_VIEWBOX_HEIGHT;
-      const SNAP_THRESHOLD = 84;
+      const SNAP_THRESHOLD = 108;
+      const SOUND_FILES = {
+        snap: "./assets/sounds/snap.wav",
+        miss: "./assets/sounds/miss.mp3",
+        complete: "./assets/sounds/complete.mp3",
+      };
 
       const PIECES = [
         {
@@ -483,6 +533,7 @@
       const bank = document.querySelector("#piece-bank");
       const playArea = document.querySelector("#play-area");
       const tray = document.querySelector(".tray");
+      const comboPanel = document.querySelector("#combo-panel");
       const comboTitle = document.querySelector("#combo-title");
       const comboText = document.querySelector("#combo-text");
       const template = document.querySelector("#piece-template");
@@ -491,10 +542,11 @@
         pieces: new Map(),
         inPlay: [],
         connectedIds: [],
-        audioContext: null,
+        soundCache: {},
         originX: null,
         originY: null,
         activeInfoId: null,
+        isComplete: false,
       };
 
       function init() {
@@ -637,9 +689,6 @@
             );
           } else {
             movePieceToBank(id);
-            if (startedInPlay) {
-              playClickSound();
-            }
           }
         }
 
@@ -700,13 +749,16 @@
             if (wasInPlay) {
               layoutCluster();
             }
+            playNamedSound("miss");
+            updateCompletionState();
             updateComboPanel();
             return;
           }
         }
 
         layoutCluster();
-        playClickSound();
+        playNamedSound("snap");
+        updateCompletionState();
         updateComboPanel();
       }
 
@@ -736,6 +788,7 @@
           layoutCluster();
         }
 
+        updateCompletionState();
         updateComboPanel();
       }
 
@@ -888,6 +941,53 @@
         }
       }
 
+      function updateCompletionState() {
+        const isNowComplete = state.connectedIds.length === PIECES.length;
+
+        if (isNowComplete && !state.isComplete) {
+          comboPanel.classList.add("is-complete");
+          playNamedSound("complete");
+          state.connectedIds.forEach(function (id) {
+            const piece = state.pieces.get(id);
+            piece.node.classList.remove("is-complete");
+            void piece.node.offsetWidth;
+            piece.node.classList.add("is-complete");
+          });
+        } else if (!isNowComplete) {
+          comboPanel.classList.remove("is-complete");
+          state.connectedIds.forEach(function (id) {
+            const piece = state.pieces.get(id);
+            piece.node.classList.remove("is-complete");
+          });
+          state.pieces.forEach(function (piece) {
+            if (!piece.connected) {
+              piece.node.classList.remove("is-complete");
+            }
+          });
+        }
+
+        state.isComplete = isNowComplete;
+      }
+
+      function playNamedSound(name) {
+        const src = SOUND_FILES[name];
+        if (!src) {
+          return;
+        }
+
+        if (!state.soundCache[name]) {
+          const audio = new Audio(src);
+          audio.preload = "auto";
+          state.soundCache[name] = audio;
+        }
+
+        const baseAudio = state.soundCache[name];
+        const audio = baseAudio.cloneNode();
+        audio.play().catch(function () {
+          return undefined;
+        });
+      }
+
       function getComboText(ids) {
         if (ids.length === 1) {
           return SINGLE_TEXT[ids[0]];
@@ -904,41 +1004,6 @@
           return QUAD_TEXT[key];
         }
         return FULL_TEXT;
-      }
-
-      function playClickSound() {
-        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextCtor) {
-          return;
-        }
-        if (!state.audioContext) {
-          state.audioContext = new AudioContextCtor();
-        }
-
-        const audioContext = state.audioContext;
-        if (audioContext.state === "suspended") {
-          audioContext.resume();
-        }
-
-        const now = audioContext.currentTime;
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        const filter = audioContext.createBiquadFilter();
-
-        oscillator.type = "triangle";
-        oscillator.frequency.setValueAtTime(690, now);
-        oscillator.frequency.exponentialRampToValueAtTime(430, now + 0.09);
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(1800, now);
-        gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(0.08, now + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
-
-        oscillator.connect(filter);
-        filter.connect(gain);
-        gain.connect(audioContext.destination);
-        oscillator.start(now);
-        oscillator.stop(now + 0.16);
       }
 
       function capitalize(value) {
